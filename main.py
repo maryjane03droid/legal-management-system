@@ -33,10 +33,17 @@ class LegalApp:
         save_btn = tk.Button(self.root, text="Add to Database", bg="green", fg="white", command=self.save_client)
         save_btn.pack(pady=10)
 
+        tk.Label(form_frame, text="Case Type:").grid(row=2, column=0, sticky="w")
+        self.case_type_var = tk.StringVar()
+        self.case_dropdown = ttk.Combobox(form_frame, textvariable=self.case_type_var, state="readonly")
+        self.case_dropdown['values'] = ("Family Law", "Criminal Defense", "Corporate", "Estate Planning")
+        self.case_dropdown.grid(row=2, column=1, pady=5, padx=5)
+        self.case_dropdown.current(0) # Sets default to the first option
         # 4. The Table
-        self.tree = ttk.Treeview(self.root, columns=("Name", "Phone"), show='headings')
+        self.tree = ttk.Treeview(self.root, columns=("Name", "Phone", "Type"), show='headings')
         self.tree.heading("Name", text="Client Name")
         self.tree.heading("Phone", text="Phone Number")
+        self.tree.heading("Type", text="Case Category")
         self.tree.pack(pady=20, fill="both", expand=True, padx=20)
         
         self.refresh_table()
@@ -45,11 +52,13 @@ class LegalApp:
         """This is the function the error was missing"""
         name = self.name_entry.get()
         phone = self.phone_entry.get()
-        if name and phone:
-            self.db.add_client(name, phone, "legal@example.com")
+        case_type = self.case_type_var.get()
+        if name and phone and case_type:
+            self.db.add_client(name, phone, "legal@example.com", case_type)
             messagebox.showinfo("Success", f"Client {name} added!")
             self.name_entry.delete(0, tk.END)
             self.phone_entry.delete(0, tk.END)
+            self.case_dropdown.set("")
             self.refresh_table()
         else:
             messagebox.showwarning("Warning", "Fields cannot be empty!")
@@ -60,7 +69,7 @@ class LegalApp:
             self.tree.delete(item)
         clients = self.db.get_all_clients()
         for client in clients:
-            self.tree.insert("", tk.END, values=(client['name'], client['phone']))
+            self.tree.insert("", tk.END, values=(client['name'], client['phone'], client.get('case_type', 'General')))
 
 if __name__ == "__main__":
     root = tk.Tk()
