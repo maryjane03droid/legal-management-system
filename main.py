@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-from database_manager import DatabaseManager # Import the brain we just built
+
+from database_manager import DatabaseManager
 
 class LegalApp:
     def __init__(self, root):
