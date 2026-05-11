@@ -32,7 +32,9 @@ class LegalApp:
         # 3. Save Button
         save_btn = tk.Button(self.root, text="Add to Database", bg="green", fg="white", command=self.save_client)
         save_btn.pack(pady=10)
-
+# Delete Button (Red to distinguish it)
+        delete_btn = tk.Button(self.root, text="Delete Selected Client", bg="#dc3545", fg="white", command=self.delete_selected)
+        delete_btn.pack(pady=5)
         tk.Label(form_frame, text="Case Type:").grid(row=2, column=0, sticky="w")
         self.case_type_var = tk.StringVar()
         self.case_dropdown = ttk.Combobox(form_frame, textvariable=self.case_type_var, state="readonly")
@@ -69,8 +71,30 @@ class LegalApp:
             self.tree.delete(item)
         clients = self.db.get_all_clients()
         for client in clients:
-            self.tree.insert("", tk.END, values=(client['name'], client['phone'], client.get('case_type', 'General')))
+            self.tree.insert("", tk.END,iid=str(client['_id']), values=(client['name'], client['phone'], client.get('case_type', 'General')))
+    def delete_selected(self):
+        """This function runs when you click the Delete button"""
+        # 1. Check if the user actually clicked a row in the table
+        selected_item = self.tree.selection()
+        
+        if not selected_item:
+            messagebox.showwarning("Selection Error", "Please select a client from the table to delete.")
+            return
 
+        # 2. Get the ID of the selected row
+        # (We set this up in refresh_table as the 'iid')
+        client_id = selected_item[0] 
+
+        # 3. Ask for confirmation so you don't delete by accident
+        confirm = messagebox.askyesno("Confirm Delete", "Are you sure you want to permanently delete this client?")
+        
+        if confirm:
+            # 4. Tell the database to remove it
+            self.db.delete_client(client_id)
+            
+            # 5. Refresh the UI so the name disappears
+            self.refresh_table()
+            messagebox.showinfo("Success", "Client record deleted.")
 if __name__ == "__main__":
     root = tk.Tk()
     app = LegalApp(root)

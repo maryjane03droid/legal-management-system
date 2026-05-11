@@ -19,7 +19,7 @@ class DatabaseManager:
 
     # --- CLIENT OPERATIONS (CRUD) [cite: 6] ---
 
-    def add_client(self, name, phone, email, case_type):
+    def add_client(self, name, phone, email="no email provided", case_type="General"):
         """Adds a new client document to the collection """
         client_data = {
             "name": name,
@@ -35,9 +35,14 @@ class DatabaseManager:
         return list(self.clients.find())
 
     def delete_client(self, client_id):
-        """Removes a client using their unique ID [cite: 6]"""
-        self.clients.delete_one({"_id": ObjectId(client_id)})
-
+        
+        try:
+            # We must convert the string ID from the UI back into a MongoDB ObjectId
+            self.clients.delete_one({"_id": ObjectId(client_id)})
+            return True
+        except Exception as e:
+            print(f"Delete Error: {e}")
+            return False
 # To test if it works:
 if __name__ == "__main__":
     db = DatabaseManager()
