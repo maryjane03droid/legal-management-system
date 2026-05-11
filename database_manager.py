@@ -5,7 +5,7 @@ class DatabaseManager:
     def __init__(self):
         # 1. Connect to the local MongoDB server
         # Standard connection string for a local setup
-        self.client = MongoClient("mongodb://localhost:27017/")
+        self.client = MongoClient("mongodb+srv://kuthiemaryjane:m110304j@cluster0.3l9dg2e.mongodb.net/")
         
         # 2. Access the database [cite: 5]
         self.db = self.client['legal_management_system']
@@ -19,12 +19,14 @@ class DatabaseManager:
 
     # --- CLIENT OPERATIONS (CRUD) [cite: 6] ---
 
-    def add_client(self, name, phone, email):
+    def add_client(self, name, phone, email, case_type):
         """Adds a new client document to the collection """
         client_data = {
             "name": name,
             "phone": phone,
-            "email": email
+            "email": email,
+            "case_type": case_type,
+            "status": "Active"
         }
         return self.clients.insert_one(client_data)
 
