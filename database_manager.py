@@ -14,11 +14,38 @@ class DatabaseManager:
         self.clients = self.db['clients']
         self.appointments = self.db['appointments']
         self.cases = self.db['cases']
+        self.users = self.db['users']
         
         print("Successfully connected to MongoDB")
 
     # --- CLIENT OPERATIONS (CRUD) [cite: 6] ---
 
+    def authenticate_or_signup(self, username, password, role="staff"):
+        """Finds a user or creates one if they don't exist."""
+        user = self.db.users.find_one({"username": username})
+        
+        if user:
+            # User exists, check password
+            if user['password'] == password:
+                return user
+            else:
+                return None # Wrong password
+        else:
+            # First timer! Create the account
+            new_user = {
+                "username": username,
+                "password": password,
+                "role": role
+            }
+            self.db.users.insert_one(new_user)
+            return new_user
+        
+    def check_login(self, username, password):
+        """Checks if the user exists and the password matches"""
+        # In a real app, we would use 'bcrypt' to hash these passwords!
+        user = self.db.users.find_one({"username": username, "password": password})
+        return user is not None
+    
     def add_client(self, name, phone, email="no email provided", case_type="General"):
         """Adds a new client document to the collection """
         client_data = {
