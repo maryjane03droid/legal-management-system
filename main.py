@@ -1,142 +1,106 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-from database_manager import DatabaseManager
+import mongo # Imports your updated mongo.py
 
-class LoginWindow:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("Legal System - Staff Login")
-        self.root.geometry("350x300")
-        self.root.configure(bg="#3d2b1f") 
-        self.db = DatabaseManager()
+class AuthPopup:
+    def __init__(self, parent, action_to_perform):
+        self.popup = tk.Toplevel(parent)
+        self.popup.title("Staff Access")
+        self.popup.geometry("350x350")
+        self.popup.configure(bg="#3d2b1f")
+        self.action_to_perform = action_to_perform
 
-        tk.Label(root, text="Staff Authentication", font=("Times New Roman", 18, "bold"), 
-                 bg="#3d2b1f", fg="#d4af37").pack(pady=20)
+        tk.Label(self.popup, text="Security Gate", font=("Times New Roman", 18, "bold"), 
+                 bg="#3d2b1f", fg="#d4af37").pack(pady=15)
 
-        tk.Label(root, text="Username:", bg="#3d2b1f", fg="#f5f5dc").pack()
-        self.username_entry = tk.Entry(root, bg="#f5f5dc")
-        self.username_entry.pack(pady=5)
+        tk.Label(self.popup, text="Username:", bg="#3d2b1f", fg="#f5f5dc").pack()
+        self.user_entry = tk.Entry(self.popup, bg="#f5f5dc")
+        self.user_entry.pack(pady=5)
 
-        tk.Label(root, text="Password:", bg="#3d2b1f", fg="#f5f5dc").pack()
-        self.password_entry = tk.Entry(root, show="*", bg="#f5f5dc")
-        self.password_entry.pack(pady=5)
+        tk.Label(self.popup, text="Password:", bg="#3d2b1f", fg="#f5f5dc").pack()
+        self.pw_entry = tk.Entry(self.popup, show="*", bg="#f5f5dc")
+        self.pw_entry.pack(pady=5)
 
-        tk.Button(root, text="Secure Login", bg="#d4af37", fg="#3d2b1f", 
-                  font=("Arial", 10, "bold"), command=self.handle_login).pack(pady=20)
+        # Login Button
+        tk.Button(self.popup, text="Login & Proceed", bg="#d4af37", fg="#3d2b1f", 
+                  font=("Arial", 10, "bold"), width=20, command=self.handle_login).pack(pady=10)
+
+        # Signup Button (To create the accounts that aren't working)
+        tk.Button(self.popup, text="Signup New Staff", bg="#5c4033", fg="#f5f5dc", 
+                  font=("Arial", 9), width=20, command=self.handle_signup).pack()
 
     def handle_login(self):
-        user = self.username_entry.get()
-        pw = self.password_entry.get()
-        if self.db.check_login(user, pw):
-            self.root.destroy() 
-            launch_dashboard()
+        if mongo.check_login(self.user_entry.get(), self.pw_entry.get()):
+            self.popup.destroy()
+            self.action_to_perform()
         else:
-            messagebox.showerror("Access Denied", "Invalid Credentials")
+            messagebox.showerror("Error", "Invalid Credentials")
+
+    def handle_signup(self):
+        user = self.user_entry.get()
+        pw = self.pw_entry.get()
+        if user and pw:
+            if mongo.signup_staff(user, pw):
+                messagebox.showinfo("Success", "Staff account created! You can now login.")
+            else:
+                messagebox.showerror("Error", "Username already exists.")
+        else:
+            messagebox.showwarning("Warning", "Fields cannot be empty.")
 
 class LegalApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Legal Management System")
         self.root.geometry("900x700")
-
-        self.bg_color = "#3d2b1f"  # Deep Brown
-        self.fg_color = "#f5f5dc"  # Beige
-        self.gold_accent = "#d4af37" # Gold
+        self.root.configure(bg="#3d2b1f")
         
-        self.db = DatabaseManager()
+        self.db = mongo 
         self.create_widgets()
 
     def create_widgets(self):
-        self.root.configure(bg=self.bg_color)
-        
-        tk.Label(self.root, text="Law Firm Dashboard",
-                 font=("Times New Roman", 28, "bold"),
-                 bg=self.bg_color, fg=self.gold_accent).pack(pady=20)
+        tk.Label(self.root, text="Law Firm Dashboard", font=("Times New Roman", 28, "bold"),
+                 bg="#3d2b1f", fg="#d4af37").pack(pady=20)
 
-        # Registration Form
-        form_frame = tk.LabelFrame(self.root, text="Client Intake",
-                                   bg=self.bg_color, fg=self.gold_accent,
-                                   font=("arial", 10 ,"bold"), padx=20, pady=10)
-        form_frame.pack(pady=10, padx=20, fill="x")
+        # Entry Form
+        form = tk.LabelFrame(self.root, text="Case Entry", bg="#3d2b1f", fg="#d4af37", padx=20, pady=10)
+        form.pack(pady=10, padx=20, fill="x")
     
-        tk.Label(form_frame, text="Full Name:", bg=self.bg_color, fg=self.fg_color).grid(row=0, column=0, sticky="w")
-        self.name_entry = tk.Entry(form_frame, bg=self.fg_color)
-        self.name_entry.grid(row=0, column=1, pady=5, padx=5)
+        tk.Label(form, text="Client Name:", bg="#3d2b1f", fg="#f5f5dc").grid(row=0, column=0, sticky="w")
+        self.name_in = tk.Entry(form, bg="#f5f5dc")
+        self.name_in.grid(row=0, column=1, pady=5, padx=5)
 
-        tk.Label(form_frame, text="Phone:", bg=self.bg_color, fg=self.fg_color).grid(row=1, column=0, sticky="w")
-        self.phone_entry = tk.Entry(form_frame, bg=self.fg_color)
-        self.phone_entry.grid(row=1, column=1, pady=5, padx=5)
+        tk.Label(form, text="Phone:", bg="#3d2b1f", fg="#f5f5dc").grid(row=1, column=0, sticky="w")
+        self.phone_in = tk.Entry(form, bg="#f5f5dc")
+        self.phone_in.grid(row=1, column=1, pady=5, padx=5)
 
-        tk.Label(form_frame, text="Case Type:", bg=self.bg_color, fg=self.fg_color).grid(row=2, column=0, sticky="w")
-        self.case_type_var = tk.StringVar()
-        self.case_dropdown = ttk.Combobox(form_frame, textvariable=self.case_type_var, state="readonly")
-        self.case_dropdown['values'] = ("Family Law", "Criminal Defense", "Corporate", "Estate Planning")
-        self.case_dropdown.grid(row=2, column=1, pady=5, padx=5)
-        self.case_dropdown.current(0)
+        # Trigger Auth Pop-up on "Add Case"
+        tk.Button(self.root, text="Add Case", bg="#d4af37", fg="#3d2b1f", font=("Arial", 10, "bold"),
+                  command=lambda: AuthPopup(self.root, self.save_data)).pack(pady=10)
 
-        # Buttons
-        save_btn = tk.Button(self.root, text="Add to Database", bg=self.gold_accent, 
-                             fg=self.bg_color, font=("Arial", 10, "bold"), command=self.save_client)
-        save_btn.pack(pady=10)
-
-        delete_btn = tk.Button(self.root, text="Delete Selected Client", bg="#8b0000", 
-                               fg="white", font=("Arial", 10, "bold"), command=self.delete_selected)
-        delete_btn.pack(pady=5)
-
-        # Table Styling
-        style = ttk.Style()
-        style.theme_use("clam")
-        style.configure("Treeview", background=self.fg_color, foreground=self.bg_color, 
-                        fieldbackground=self.fg_color, rowheight=30)
-        style.configure("Treeview.Heading", background=self.gold_accent, foreground=self.bg_color, font=("Arial", 10, "bold"))
-        style.map("Treeview", background=[('selected', self.gold_accent)])
-
-        self.tree = ttk.Treeview(self.root, columns=("Name", "Phone", "Type"), show='headings')
-        self.tree.heading("Name", text="Client Name")
-        self.tree.heading("Phone", text="Phone Number")
-        self.tree.heading("Type", text="Case Category")
+        # Table
+        self.tree = ttk.Treeview(self.root, columns=("N", "P", "S"), show='headings')
+        self.tree.heading("N", text="Client Name")
+        self.tree.heading("P", text="Phone")
+        self.tree.heading("S", text="Status")
         self.tree.pack(pady=20, fill="both", expand=True, padx=20)
-        
-        self.refresh_table()
+        self.refresh()
 
-    def save_client(self):
-        name = self.name_entry.get()
-        phone = self.phone_entry.get()
-        case_type = self.case_type_var.get()
+    def save_data(self):
+        name = self.name_in.get()
+        phone = self.phone_in.get()
         if name and phone:
-            self.db.add_client(name, phone, "legal@example.com", case_type)
-            messagebox.showinfo("Success", f"Client {name} added!")
-            self.name_entry.delete(0, tk.END)
-            self.phone_entry.delete(0, tk.END)
-            self.refresh_table()
+            self.db.add_new_case(name, phone, "General") # Saves to MongoDB
+            messagebox.showinfo("Success", "Data saved to MongoDB Atlas.")
+            self.refresh()
         else:
-            messagebox.showwarning("Warning", "Fields cannot be empty!")
+            messagebox.showwarning("Empty Fields", "Please enter details.")
 
-    def refresh_table(self):
-        for item in self.tree.get_children():
-            self.tree.delete(item)
-        for client in self.db.get_all_clients():
-            self.tree.insert("", tk.END, iid=str(client['_id']), 
-                             values=(client['name'], client['phone'], client.get('case_type', 'General')))
+    def refresh(self):
+        for i in self.tree.get_children(): self.tree.delete(i)
+        for case in self.db.get_all_cases():
+            self.tree.insert("", "end", values=(case['client_name'], case['phone'], case['status']))
 
-    def delete_selected(self):
-        selected_item = self.tree.selection()
-        if not selected_item:
-            messagebox.showwarning("Selection Error", "Select a client to delete.")
-            return
-
-        if messagebox.askyesno("Confirm Delete", "Permanently delete this client?"):
-            self.db.delete_client(selected_item[0])
-            self.refresh_table()
-            messagebox.showinfo("Success", "Client record deleted.")
-
-# --- LAUNCH LOGIC (Must be outside the classes) ---
-def launch_dashboard():
-    dashboard_root = tk.Tk()
-    app = LegalApp(dashboard_root)
-    dashboard_root.mainloop()
-    
 if __name__ == "__main__":
-    login_root = tk.Tk()
-    LoginWindow(login_root)
-    login_root.mainloop()
+    root = tk.Tk()
+    LegalApp(root)
+    root.mainloop()
