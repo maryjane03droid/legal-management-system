@@ -1,106 +1,158 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
-import mongo # Imports your updated mongo.py
+from tkinter import ttk, messagebox, simpledialog
+import mongo
+from login import LoginWindow
 
-class AuthPopup:
-    def __init__(self, parent, action_to_perform):
-        self.popup = tk.Toplevel(parent)
-        self.popup.title("Staff Access")
-        self.popup.geometry("350x350")
-        self.popup.configure(bg="#3d2b1f")
-        self.action_to_perform = action_to_perform
-
-        tk.Label(self.popup, text="Security Gate", font=("Times New Roman", 18, "bold"), 
-                 bg="#3d2b1f", fg="#d4af37").pack(pady=15)
-
-        tk.Label(self.popup, text="Username:", bg="#3d2b1f", fg="#f5f5dc").pack()
-        self.user_entry = tk.Entry(self.popup, bg="#f5f5dc")
-        self.user_entry.pack(pady=5)
-
-        tk.Label(self.popup, text="Password:", bg="#3d2b1f", fg="#f5f5dc").pack()
-        self.pw_entry = tk.Entry(self.popup, show="*", bg="#f5f5dc")
-        self.pw_entry.pack(pady=5)
-
-        # Login Button
-        tk.Button(self.popup, text="Login & Proceed", bg="#d4af37", fg="#3d2b1f", 
-                  font=("Arial", 10, "bold"), width=20, command=self.handle_login).pack(pady=10)
-
-        # Signup Button (To create the accounts that aren't working)
-        tk.Button(self.popup, text="Signup New Staff", bg="#5c4033", fg="#f5f5dc", 
-                  font=("Arial", 9), width=20, command=self.handle_signup).pack()
-
-    def handle_login(self):
-        if mongo.check_login(self.user_entry.get(), self.pw_entry.get()):
-            self.popup.destroy()
-            self.action_to_perform()
-        else:
-            messagebox.showerror("Error", "Invalid Credentials")
-
-    def handle_signup(self):
-        user = self.user_entry.get()
-        pw = self.pw_entry.get()
-        if user and pw:
-            if mongo.signup_staff(user, pw):
-                messagebox.showinfo("Success", "Staff account created! You can now login.")
-            else:
-                messagebox.showerror("Error", "Username already exists.")
-        else:
-            messagebox.showwarning("Warning", "Fields cannot be empty.")
-
-class LegalApp:
+class LegalManagementFirm:
     def __init__(self, root):
         self.root = root
-        self.root.title("Legal Management System")
-        self.root.geometry("900x700")
-        self.root.configure(bg="#3d2b1f")
-        
-        self.db = mongo 
-        self.create_widgets()
+        self.root.title("Legal Management Firm | Client Portal")
+        self.root.geometry("1300x850") # Slightly wider to accommodate description
+        self.root.configure(bg="#2C1E16") # Mahogany
 
-    def create_widgets(self):
-        tk.Label(self.root, text="Law Firm Dashboard", font=("Times New Roman", 28, "bold"),
-                 bg="#3d2b1f", fg="#d4af37").pack(pady=20)
-
-        # Entry Form
-        form = tk.LabelFrame(self.root, text="Case Entry", bg="#3d2b1f", fg="#d4af37", padx=20, pady=10)
-        form.pack(pady=10, padx=20, fill="x")
-    
-        tk.Label(form, text="Client Name:", bg="#3d2b1f", fg="#f5f5dc").grid(row=0, column=0, sticky="w")
-        self.name_in = tk.Entry(form, bg="#f5f5dc")
-        self.name_in.grid(row=0, column=1, pady=5, padx=5)
-
-        tk.Label(form, text="Phone:", bg="#3d2b1f", fg="#f5f5dc").grid(row=1, column=0, sticky="w")
-        self.phone_in = tk.Entry(form, bg="#f5f5dc")
-        self.phone_in.grid(row=1, column=1, pady=5, padx=5)
-
-        # Trigger Auth Pop-up on "Add Case"
-        tk.Button(self.root, text="Add Case", bg="#d4af37", fg="#3d2b1f", font=("Arial", 10, "bold"),
-                  command=lambda: AuthPopup(self.root, self.save_data)).pack(pady=10)
-
-        # Table
-        self.tree = ttk.Treeview(self.root, columns=("N", "P", "S"), show='headings')
-        self.tree.heading("N", text="Client Name")
-        self.tree.heading("P", text="Phone")
-        self.tree.heading("S", text="Status")
-        self.tree.pack(pady=20, fill="both", expand=True, padx=20)
+        self.gold, self.mahogany = "#D4AF37", "#2C1E16"
+        self.setup_styles()
+        self.setup_ui()
         self.refresh()
 
-    def save_data(self):
-        name = self.name_in.get()
-        phone = self.phone_in.get()
-        if name and phone:
-            self.db.add_new_case(name, phone, "General") # Saves to MongoDB
-            messagebox.showinfo("Success", "Data saved to MongoDB Atlas.")
+    def setup_styles(self):
+        style = ttk.Style()
+        style.theme_use("clam")
+        
+        # Enhanced Table Styling with visible grid lines
+        style.configure("Treeview", 
+                        background="#3d2b1f", 
+                        foreground="white", 
+                        rowheight=40, 
+                        fieldbackground="#3d2b1f",
+                        borderwidth=1)
+        
+        style.map("Treeview", 
+                  background=[('selected', self.gold)], 
+                  foreground=[('selected', 'black')])
+
+        # Header styling with gold borders
+        style.configure("Treeview.Heading", 
+                        background="#1A110B", 
+                        foreground=self.gold, 
+                        font=("Times New Roman", 11, "bold"),
+                        borderwidth=1,
+                        relief="raised")
+
+    def setup_ui(self):
+        # Premium Navbar
+        nav = tk.Frame(self.root, bg="#1A110B", height=90)
+        nav.pack(fill="x")
+        tk.Label(nav, text="LEGAL MANAGEMENT FIRM", font=("Times New Roman", 26, "bold"), 
+                 bg="#1A110B", fg=self.gold).pack(pady=20)
+
+        # Input Card Section
+        card = tk.LabelFrame(self.root, text=" CASE FILING PORTAL ", bg=self.mahogany, 
+                             fg=self.gold, padx=25, pady=25, font=("Arial", 10, "bold"))
+        card.pack(fill="x", padx=50, pady=20)
+
+        # Grid Layout for Inputs
+        tk.Label(card, text="Client Name:", bg=self.mahogany, fg="#F5F5DC").grid(row=0, column=0, sticky="w")
+        self.n_ent = tk.Entry(card, width=25, font=("Arial", 11), bg="#3d2b1f", fg="white", insertbackground="white")
+        self.n_ent.grid(row=0, column=1, padx=15)
+
+        tk.Label(card, text="Phone Number:", bg=self.mahogany, fg="#F5F5DC").grid(row=0, column=2, sticky="w")
+        self.p_ent = tk.Entry(card, width=20, font=("Arial", 11), bg="#3d2b1f", fg="white", insertbackground="white")
+        self.p_ent.grid(row=0, column=3, padx=15)
+
+        tk.Label(card, text="Case Type:", bg=self.mahogany, fg="#F5F5DC").grid(row=0, column=4, sticky="w")
+        self.t_box = ttk.Combobox(card, values=["Criminal", "Family", "Civil", "Corporate", "Others"], 
+                                  state="readonly", width=18)
+        self.t_box.grid(row=0, column=5, padx=15)
+        self.t_box.current(0)
+
+        # Functional Buttons
+        btn_f = tk.Frame(self.root, bg=self.mahogany)
+        btn_f.pack(pady=15)
+        
+        tk.Button(btn_f, text="FILE CASE", bg=self.gold, fg="#1A110B", font=("Arial", 10, "bold"), 
+                  width=15, height=2, command=self.save_flow, cursor="hand2").grid(row=0, column=0, padx=10)
+        
+        tk.Button(btn_f, text="EDIT DETAILS", bg="#5D4037", fg="white", font=("Arial", 10, "bold"),
+                  width=15, height=2, command=self.edit_flow, cursor="hand2").grid(row=0, column=1, padx=10)
+        
+        tk.Button(btn_f, text="WITHDRAW", bg="#8B0000", fg="white", font=("Arial", 10, "bold"),
+                  width=15, height=2, command=self.drop, cursor="hand2").grid(row=0, column=2, padx=10)
+        
+        tk.Button(btn_f, text="REVIEW CASE", bg="#1A110B", fg=self.gold, font=("Arial", 10, "italic bold"),
+                  width=25, height=2, command=lambda: LoginWindow(self.root), cursor="hand2").grid(row=0, column=3, padx=30)
+
+        # Data Table with the requested Description Column
+        cols = ("case id", "Client", "Type", "Case Description", "Status", "Reviewer")
+        self.tree = ttk.Treeview(self.root, columns=cols, show="headings")
+        
+        # Configure column widths and alignment
+        for col in cols:
+            self.tree.heading(col, text=col.upper())
+            if col == "Case Description":
+                self.tree.column(col, anchor="w", width=350) # Wider for description text
+            else:
+                self.tree.column(col, anchor="center", width=130)
+
+        # Status Coloring
+        self.tree.tag_configure('Approved', background='#2E7D32', foreground='white')
+        self.tree.tag_configure('Rejected', background='#C62828', foreground='white')
+        
+        self.tree.pack(fill="both", expand=True, padx=50, pady=25)
+
+    def save_flow(self):
+        # UI/UX: Prompt for description BEFORE authentication
+        desc = simpledialog.askstring("Case Brief", "Enter additional details for your case (Optional):")
+        if desc is None: return # User cancelled
+        
+        LoginWindow(self.root, on_success=lambda: [
+            mongo.add_case(self.n_ent.get(), self.p_ent.get(), self.t_box.get(), desc or "No specific details provided."),
+            self.refresh(),
+            messagebox.showinfo("Success", "Legal case recorded successfully.")
+        ])
+
+    def edit_flow(self):
+        selected = self.tree.selection()
+        if not selected:
+            return messagebox.showwarning("Selection", "Please select a case from the table to update.")
+        
+        new_desc = simpledialog.askstring("Edit Brief", "Update your case description:")
+        if new_desc is None: return
+
+        LoginWindow(self.root, on_success=lambda: [
+            mongo.edit_case(selected[0], self.n_ent.get(), self.p_ent.get(), self.t_box.get(), new_desc),
+            self.refresh(),
+            messagebox.showinfo("Updated", "Case information has been modified.")
+        ])
+
+    def drop(self):
+        selected = self.tree.selection()
+        if selected and messagebox.askyesno("Confirm", "Are you sure you want to withdraw this legal case?"):
+            mongo.delete_case(selected[0])
             self.refresh()
-        else:
-            messagebox.showwarning("Empty Fields", "Please enter details.")
 
     def refresh(self):
-        for i in self.tree.get_children(): self.tree.delete(i)
-        for case in self.db.get_all_cases():
-            self.tree.insert("", "end", values=(case['client_name'], case['phone'], case['status']))
+        # Clear current rows
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+            
+        # Repopulate from MongoDB
+        data = mongo.get_cases()
+        for c in data:
+            current_status = c.get('status', 'Pending')
+            # Extract last 5 digits of ID for the "Password/ID" feel
+            display_id = str(c['_id'])[-5:]
+            
+            self.tree.insert("", "end", iid=str(c['_id']), 
+                             values=(display_id, 
+                                     c['name'], 
+                                     c['type'], 
+                                     c.get('desc', 'N/A'), 
+                                     current_status, 
+                                     c.get('reviewed_by', 'None')), 
+                             tags=(current_status,))
 
 if __name__ == "__main__":
     root = tk.Tk()
-    LegalApp(root)
+    app = LegalManagementFirm(root)
     root.mainloop()

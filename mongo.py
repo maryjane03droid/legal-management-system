@@ -2,51 +2,45 @@ import certifi
 from pymongo import MongoClient
 from bson import ObjectId
 
-# CONNECTION: Using certifi to bypass SSL errors
-connection_string = "mongodb+srv://albejquarshie_db_user:bimVT2PLuZGLOtS8@vroomify.fzlbwnh.mongodb.net/?appName=vroomify"
-client = MongoClient(connection_string, tlsCAFile=certifi.where())
+# Your Secure Connection String
+uri = "mongodb+srv://kuthiemaryjane:m110304j@cluster0.3l9dg2e.mongodb.net/?retryWrites=true&w=majority"
+client = MongoClient(uri, tlsCAFile=certifi.where())
+db = client["legal_management_firm"]
+cases_col = db["cases"]
+users_col = db["users"]
 
-# DATABASE: Clean Legal Management naming
-db = client["legal_management"]
-staff_users = db["staff_credentials"] # Collection for Login/Signup
-client_cases = db["legal_cases"]       # Collection for Case Data
+def smart_auth(u, p, r="Client"):
+    """Handles auto-signup and password verification."""
+    user = users_col.find_one({"username": u})
+    if user:
+        if user['password'] == p: return user, "SUCCESS"
+        return None, "WRONG_PASS"
+    else:
+        new_user = {"username": u, "password": p, "role": r}
+        users_col.insert_one(new_user)
+        return new_user, "CREATED"
 
-# --- AUTHENTICATION LOGIC ---
+def add_case(name, phone, c_type, desc):
+    return cases_col.insert_one({
+        "name": name, "phone": phone, "type": c_type, 
+        "desc": desc, "status": "Pending", "reviewed_by": "None"
+    })
 
-def signup_staff(username, password):
-    """Saves a new staff member to MongoDB."""
-    if staff_users.find_one({"username": username}):
-        return False  # User already exists
-    staff_users.insert_one({"username": username, "password": password})
-    return True
+def edit_case(case_id, name, phone, c_type, desc):
+    return cases_col.update_one(
+        {"_id": ObjectId(case_id)},
+        {"$set": {"name": name, "phone": phone, "type": c_type, "desc": desc}}
+    )
 
-def check_login(username, password):
-    """Checks credentials for the pop-up authentication."""
-    user = staff_users.find_one({"username": username, "password": password})
-    return True if user else False
+def delete_case(case_id):
+    return cases_col.delete_one({"_id": ObjectId(case_id)})
 
-# --- CASE SAVING LOGIC ---
+def update_status(case_id, status, staff_identity):
+    """Saves the status and the name/title of the legal person."""
+    return cases_col.update_one(
+        {"_id": ObjectId(case_id)}, 
+        {"$set": {"status": status, "reviewed_by": staff_identity}}
+    )
 
-def add_new_case(client_name, phone, case_type):
-    """Saves a legal case record directly to MongoDB."""
-    case_entry = {
-        "client_name": client_name,
-        "phone": phone,
-        "case_type": case_type,
-        "status": "Pending Review"
-    }
-    return client_cases.insert_one(case_entry)
-
-def get_all_cases():
-    """Fetches all cases to show in the UI table."""
-    return list(client_cases.find())
-
-def remove_case(case_id):
-    """Deletes a record from MongoDB."""
-    return client_cases.delete_one({"_id": ObjectId(case_id)})
-
-try:
-    client.admin.command("ping")
-    print("--- DATABASE CONNECTED ---")
-except Exception as e:
-    print("--- CONNECTION ERROR ---:", e)
+def get_cases():
+    return list(cases_col.find())
