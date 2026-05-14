@@ -3,59 +3,78 @@ from tkinter import messagebox
 import mongo
 
 class LoginWindow:
-    def __init__(self, parent, on_success=None):
+    def __init__(self, parent, on_success):
         self.win = tk.Toplevel(parent)
-        self.win.title("Vroomify Auth Gate")
-        self.win.geometry("350x520")
+        self.win.title("SECURE ACCESS")
+        self.win.geometry("400x550")
         self.win.configure(bg="#1A110B")
         self.on_success = on_success
+        self.is_shon = False
 
-        # Center the window
-        self.win.transient(parent)
-        self.win.grab_set()
-
-        tk.Label(self.win, text="login/signup ", fg="#D4AF37", bg="#1A110B", font=("Times New Roman", 18, "bold")).pack(pady=30)
+        # --- REFINED LOGO/HEADER ---
+        tk.Label(self.win, text="V A U L T  A C C E S S", font=("Times New Roman", 20, "bold"), 
+                 bg="#1A110B", fg="#D4AF37").pack(pady=(50, 30))
         
-        tk.Label(self.win, text="Username", bg="#1A110B", fg="#F5F5DC").pack()
-        self.u = tk.Entry(self.win, width=28, font=("Arial", 11)); self.u.pack(pady=5)
+        f = tk.Frame(self.win, bg="#1A110B")
+        f.pack(padx=45, fill="x")
 
-        tk.Label(self.win, text="Password", bg="#1A110B", fg="#F5F5DC").pack()
-        self.p = tk.Entry(self.win, show="*", width=28, font=("Arial", 11)); self.p.pack(pady=5)
+        # --- USERNAME FIELD ---
+        tk.Label(f, text="Username", bg="#1A110B", fg="#A89276", font=("Arial", 9, "bold")).pack(anchor="w")
+        self.u = tk.Entry(f, bg="#2C1E16", fg="white", borderwidth=0, 
+                          font=("Arial", 11), insertbackground="#D4AF37")
+        self.u.pack(fill="x", pady=(5, 20), ipady=8)
 
-        # SHOW PASSWORD TOGGLE
-        self.show_p = tk.BooleanVar()
-        tk.Checkbutton(self.win, text="View Password", variable=self.show_p, bg="#1A110B", 
-                       fg="#D4AF37", selectcolor="#1A110B", activebackground="#1A110B", 
-                       command=self.toggle_pass).pack(pady=5)
+        # --- PASSWORD FIELD ---
+        tk.Label(f, text="Password", bg="#1A110B", fg="#A89276", font=("Arial", 9, "bold")).pack(anchor="w")
+        
+        pass_row = tk.Frame(f, bg="#2C1E16")
+        pass_row.pack(fill="x", pady=(5, 10))
+        
+        self.p = tk.Entry(pass_row, show="*", bg="#2C1E16", fg="white", borderwidth=0, 
+                          font=("Arial", 11), insertbackground="#D4AF37")
+        self.p.pack(side="left", fill="x", expand=True, ipady=8, padx=5)
+        
+        # Visibility Toggle
+        self.toggle_btn = tk.Button(pass_row, text="👁", bg="#2C1E16", fg="#D4AF37", borderwidth=0, 
+                                    activebackground="#2C1E16", activeforeground="white",
+                                    cursor="hand2", command=self.toggle_pass)
+        self.toggle_btn.pack(side="right", padx=5)
 
-        tk.Label(self.win, text="Identify Role", bg="#1A110B", fg="#F5F5DC").pack(pady=5)
-        self.role = tk.StringVar(value="Lawyer")
-        self.role_menu = tk.OptionMenu(self.win, self.role, "Client", "Chief Judge", "Lawyer", "Admin")
-        self.role_menu.config(bg="#D4AF37", fg="#1A110B", font=("Arial", 9, "bold"))
-        self.role_menu.pack(pady=10)
-
-        tk.Button(self.win, text="SAVE", bg="#D4AF37", fg="#1A110B", font=("Arial", 10, "bold"),
-                  command=self.auth, width=20, height=2, cursor="hand2").pack(pady=20)
+        # --- LOGIN ACTION ---
+        tk.Button(self.win, text="AUTHORIZE", bg="#D4AF37", fg="black", font=("Arial", 10, "bold"),
+                  height=2, width=22, bd=0, cursor="hand2", 
+                  command=self.attempt).pack(pady=40)
+        
+        # Footer decoration
+        tk.Label(self.win, text="PRESTIGE LEGAL SYSTEMS © 2026", font=("Arial", 7), 
+                 bg="#1A110B", fg="#4A3728").pack(side="bottom", pady=10)
 
     def toggle_pass(self):
-        self.p.config(show="" if self.show_p.get() else "*")
-
-    def auth(self):
-        username = self.u.get()
-        password = self.p.get()
-        role = self.role.get()
-
-        user_data, status = mongo.smart_auth(username, password, role)
-
-        if status == "WRONG_PASS":
-            messagebox.showerror("Denied", "Incorrect Credentials. Please try again.")
+        """Switches password visibility with UI feedback."""
+        if self.is_shon:
+            self.p.config(show="*")
+            self.toggle_btn.config(fg="#D4AF37")
+            self.is_shon = False
         else:
-            # We must destroy this window BEFORE opening the next one to avoid blank screens
+            self.p.config(show="")
+            self.toggle_btn.config(fg="white")
+            self.is_shon = True
+
+    def attempt(self):
+        """Verifies credentials against the Cloud Atlas database."""
+        username = self.u.get().strip()
+        password = self.p.get().strip()
+        
+        if not username or not password:
+            messagebox.showwarning("Incomplete", "Access denied. Please provide all credentials.")
+            return
+
+        # Call the upgraded mongo verify function
+        user = mongo.verify_user(username, password)
+        
+        if user:
+            messagebox.showinfo("Identity Verified", f"Welcome back, {user['role']} {user['username']}.")
+            self.on_success(user)
             self.win.destroy()
-            
-            if self.on_success:
-                self.on_success()
-            elif role in ["Chief Judge", "Lawyer", "Admin"]:
-                # Delayed import to prevent circular issues
-                from admin import AdminDashboard
-                AdminDashboard(user_data)
+        else:
+            messagebox.showerror("Auth Error", "The credentials provided do not match our records.")

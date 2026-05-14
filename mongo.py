@@ -1,46 +1,135 @@
-import certifi
-from pymongo import MongoClient
+from pymongo import MongoClient, errors
 from bson import ObjectId
+import ssl
 
-# Your Secure Connection String
+# --- CLOUD DATABASE CONNECTION ---
+# Replace with your secure Atlas Connection String
 uri = "mongodb+srv://kuthiemaryjane:m110304j@cluster0.3l9dg2e.mongodb.net/?retryWrites=true&w=majority"
-client = MongoClient(uri, tlsCAFile=certifi.where())
-db = client["legal_management_firm"]
-cases_col = db["cases"]
-users_col = db["users"]
 
-def smart_auth(u, p, r="Client"):
-    """Handles auto-signup and password verification."""
-    user = users_col.find_one({"username": u})
-    if user:
-        if user['password'] == p: return user, "SUCCESS"
-        return None, "WRONG_PASS"
-    else:
-        new_user = {"username": u, "password": p, "role": r}
-        users_col.insert_one(new_user)
-        return new_user, "CREATED"
-
-def add_case(name, phone, c_type, desc):
-    return cases_col.insert_one({
-        "name": name, "phone": phone, "type": c_type, 
-        "desc": desc, "status": "Pending", "reviewed_by": "None"
-    })
-
-def edit_case(case_id, name, phone, c_type, desc):
-    return cases_col.update_one(
-        {"_id": ObjectId(case_id)},
-        {"$set": {"name": name, "phone": phone, "type": c_type, "desc": desc}}
+try:
+    # Optimized connection pooling for a responsive UI
+    client = MongoClient(
+        uri, 
+        serverSelectionTimeoutMS=5000,
+        tls=True,
+        tlsAllowInvalidCertificates=True,
+        maxPoolSize=20 
     )
+    db = client["LegalFirmDB"]
+    
+    # Ping the database to confirm connection
+    client.admin.command('ping')
+    print("SUCCESS: Connected to Prestige Legal Cloud Vault.")
+except Exception as e:
+    db = None
+    print(f"CRITICAL: Cloud Connection Failed. Error: {e}")
 
-def delete_case(case_id):
-    return cases_col.delete_one({"_id": ObjectId(case_id)})
+# --- HELPER: ID VALIDATOR ---
+def is_valid_id(oid):
+    """Prevents crashes by validating MongoDB ObjectIds before use."""
+    return ObjectId.is_valid(oid)
 
-def update_status(case_id, status, staff_identity):
-    """Saves the status and the name/title of the legal person."""
-    return cases_col.update_one(
-        {"_id": ObjectId(case_id)}, 
-        {"$set": {"status": status, "reviewed_by": staff_identity}}
-    )
+# --- CASE MANAGEMENT ---
 
-def get_cases():
-    return list(cases_col.find())
+def add_case(name, phone, ctype, desc):
+    """Inserts a new record with metadata for tracking rejections and reviews."""
+    if db is None: return None
+    try:
+        return db.cases.insert_one({
+            "name": name.strip(), 
+            "phone": phone.strip(), 
+            "type": ctype, 
+            "desc": desc.strip(), 
+            "status": "Pending",
+            "rejection_count": 0,    # New: Tracks the 'two-strike' rule
+            "reviewed_by": "None"    # New: Stores staff name upon approval
+        }).inserted_id
+    except errors.PyMongoError as e:
+        print(f"DB Error (add_case): {e}")
+        return None
+
+def get_cases(): 
+    """Retrieves all cases. Returns an empty list if database is offline."""
+    if db is None: return []
+    try:
+        return list(db.cases.find())
+    except errors.PyMongoError:
+        return []
+
+def update_case(case_id, name, phone, ctype, desc):
+    """Standard update for client details."""
+    if db is None or not is_valid_id(case_id): return
+    try:
+        db.cases.update_one(
+            {"_id": ObjectId(case_id)}, 
+            {"$set": {
+                "name": name.strip(), 
+                "phone": phone.strip(), 
+                "type": ctype, 
+                "desc": desc.strip()
+            }}
+        )
+    except errors.PyMongoError as e:
+        print(f"DB Error (update_case): {e}")
+
+def delete_case(case_id): 
+    """Permanently purges a record (Withdrawal or Final Rejection)."""
+    if db is None or not is_valid_id(case_id): return
+    try:
+        db.cases.delete_one({"_id": ObjectId(case_id)})
+    except errors.PyMongoError as e:
+        print(f"DB Error (delete_case): {e}")
+
+def update_status(case_id, status, reviewer):
+    """Final Approval logic: Seals the case and logs the reviewer's name."""
+    if db is None or not is_valid_id(case_id): return
+    try:
+        db.cases.update_one(
+            {"_id": ObjectId(case_id)}, 
+            {"$set": {"status": status, "reviewed_by": reviewer}}
+        )
+    except errors.PyMongoError as e:
+        print(f"DB Error (update_status): {e}")
+
+def increment_rejection(case_id):
+    """Handles the first rejection. Marks as Rejected but keeps it for another lawyer."""
+    if db is None or not is_valid_id(case_id): return
+    try:
+        db.cases.update_one(
+            {"_id": ObjectId(case_id)},
+            {"$inc": {"rejection_count": 1}, "$set": {"status": "Rejected"}}
+        )
+    except errors.PyMongoError as e:
+        print(f"DB Error (increment_rejection): {e}")
+
+# --- USER AUTHENTICATION ---
+
+def create_user(username, password, role):
+    """Creates user with case-insensitive uniqueness check."""
+    if db is None: return False
+    try:
+        clean_name = username.strip()
+        # Regex check for existing username regardless of uppercase/lowercase
+        if db.users.find_one({"username": {"$regex": f"^{clean_name}$", "$options": "i"}}): 
+            return False
+        
+        db.users.insert_one({
+            "username": clean_name, 
+            "password": password, 
+            "role": role
+        })
+        return True
+    except errors.PyMongoError:
+        return False
+
+def verify_user(username, password):
+    """Verifies credentials with case-insensitive username matching."""
+    if db is None: return None
+    try:
+        clean_name = username.strip()
+        return db.users.find_one({
+            "username": {"$regex": f"^{clean_name}$", "$options": "i"}, 
+            "password": password
+        })
+    except errors.PyMongoError:
+        return None
