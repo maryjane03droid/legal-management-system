@@ -17,12 +17,11 @@ class AuthGateway:
         tk.Label(self.win, text="SELECT ACCESS PORTAL", font=("Times New Roman", 16, "bold"), 
                  bg="#1A110B", fg="#D4AF37").pack(pady=40)
 
-        # CLIENT BUTTON
+        # Dual portal selection options preserved for the main navigation entry
         tk.Button(self.win, text="CLIENT PORTAL", bg="#D4AF37", fg="black", font=("Arial", 10, "bold"),
                   width=25, height=2, bd=0, cursor="hand2", 
                   command=lambda: self.select_role(False)).pack(pady=10)
 
-        # STAFF BUTTON
         tk.Button(self.win, text="STAFF VAULT", bg="#2C1E16", fg="#D4AF37", font=("Arial", 10, "bold"),
                   width=25, height=2, bd=0, cursor="hand2", 
                   command=lambda: self.select_role(True)).pack(pady=10)
@@ -134,7 +133,7 @@ class LegalFirmPortal:
         self.p_ent = tk.Entry(self.entry_f, width=15, bg="#1A110B", fg="white", borderwidth=0); self.p_ent.grid(row=0, column=3, padx=5)
         
         tk.Label(self.entry_f, text="Type:", bg=self.mahogany, fg="white").grid(row=0, column=4)
-        self.t_box = ttk.Combobox(self.entry_f, values=["Criminal", "Civil", "Family", "Corporate","others"], width=15, state="readonly")
+        self.t_box = ttk.Combobox(self.entry_f, values=["Criminal", "Civil", "Family", "Corporate", "others"], width=15, state="readonly")
         self.t_box.grid(row=0, column=5, padx=10); self.t_box.current(0)
         
         tk.Button(self.entry_f, text="FILE CASE", bg=self.gold, fg="black", font=("Arial", 9, "bold"), 
@@ -170,12 +169,6 @@ class LegalFirmPortal:
         self.tree.column("Brief", width=350)
         self.tree.pack(fill="both", expand=True)
 
-        # Explicit tag colors for the client tree matching your luxury standard
-        self.tree.tag_configure("Approved", foreground="#D4AF37")
-        self.tree.tag_configure("Solved", foreground="#28a745")
-        self.tree.tag_configure("Rejected", foreground="#dc3545")
-        self.tree.tag_configure("Pending", foreground="#A89276")
-
     def render_nav_buttons(self):
         for w in self.auth_frame.winfo_children(): w.destroy()
         if not self.current_session:
@@ -196,23 +189,24 @@ class LegalFirmPortal:
                 self.n_ent.config(state="disabled")
 
     def refresh(self):
-        """Standardized case-insensitive matching for data visibility."""
+        """Filters data dynamically based on user role authentication."""
         for i in self.tree.get_children(): self.tree.delete(i)
         for c in mongo.get_cases():
             auth = False
-            status = c.get('status', 'Pending')
             if self.current_session:
                 curr_user = str(self.current_session['username']).strip().lower()
                 case_owner = str(c['name']).strip().lower()
+                # Admins see everything, Clients only see match logs
                 if curr_user == case_owner or self.current_session['role'] != "Client":
                     auth = True
             
             p, d = (c['phone'], c['desc']) if auth else ("*******", "RESTRICTED ACCESS")
             self.tree.insert("", "end", iid=str(c['_id']), values=(
-                str(c['_id'])[-5:], c['name'], c['type'], p, d, status, c.get('reviewed_by', 'None')
-            ), tags=(status,))
+                str(c['_id'])[-5:], c['name'], c['type'], p, d, c['status'], c.get('reviewed_by', 'None')
+            ))
 
     def login_trigger(self): 
+        # Keeps dual portal active for the top right navigation header button
         AuthGateway(self.root, on_success=self.login_success)
 
     def login_success(self, user): 
@@ -228,11 +222,14 @@ class LegalFirmPortal:
         self.refresh()
 
     def review_gate(self):
+        # 1. Bypasses dual portal check window entirely if logged out
         if not self.current_session:
-            messagebox.showinfo("Staff Required", "Please access the Staff Vault to log in.")
-            self.login_trigger()
+            messagebox.showinfo("Staff Required", "Please verify your Staff credentials to enter the Review Vault.")
+            PortalChoice(self.root, is_admin=True, on_success=self.login_success)
+        # 2. Hard lockdown blocking clients from using it
         elif self.current_session['role'] == "Client":
-            messagebox.showerror("Access Denied", "Clients cannot access the Review Panel.")
+            messagebox.showerror("Access Denied", "Unauthorized Access: The administrative review panel is restricted to firm staff.")
+        # 3. Direct route for authentic staff/lawyers
         else:
             AdminDashboard(self, self.current_session)
 
@@ -245,14 +242,6 @@ class LegalFirmPortal:
             
         case = next((c for c in mongo.get_cases() if str(c['_id']) == sel[0]), None)
         if case:
-            status = case.get('status', 'Pending')
-            
-            # --- LECTURER AMENDMENT RULE ---
-            # Block modifications if a case is already Locked/Approved/Solved by a lawyer
-            if status in ["Approved", "Solved"]:
-                messagebox.showerror("Vault Locked", f"Modification Denied: This legal record is officially sealed under '{status}' status.")
-                return
-
             curr = self.current_session['username'].strip().lower()
             owner = case['name'].strip().lower()
             if curr == owner or self.current_session['role'] != "Client":
@@ -267,20 +256,21 @@ class LegalFirmPortal:
         
         case = next((c for c in mongo.get_cases() if str(c['_id']) == sel[0]), None)
         if case:
-            status = case.get('status', 'Pending')
-            
-            # --- LECTURER AMENDMENT RULE ---
-            # Block removal if a staff member has locked or closed out the file
-            if status in ["Approved", "Solved"]:
-                messagebox.showerror("Vault Locked", "Withdrawal Denied: Active or resolved legal files cannot be purged by clients.")
-                return
-
             curr = self.current_session['username'].strip().lower()
             owner = case['name'].strip().lower()
+            
+            # Ownership check verified first
             if curr == owner or self.current_session['role'] != "Client":
-                if messagebox.askyesno("Confirm", "Withdraw this record?"):
+                # Strict client safety protocol: can only withdraw if status is Pending or Rejected
+                if self.current_session['role'] == "Client" and case['status'] not in ["Pending", "Rejected"]:
+                    messagebox.showerror("Vault Sealed", f"Withdrawal Denied: Case file has already been '{case['status']}' and cannot be altered.")
+                    return
+                
+                if messagebox.askyesno("Confirm", "Are you sure you want to withdraw this legal record?"):
                     mongo.delete_case(sel[0])
                     self.refresh()
+            else:
+                messagebox.showerror("Denied", "Ownership verification failed.")
 
     def file_flow(self):
         n, p = self.n_ent.get(), self.p_ent.get()

@@ -19,7 +19,7 @@ try:
     
     # Ping the database to confirm connection
     client.admin.command('ping')
-    print("SUCCESS: Connected to Prestige Legal Cloud Vault.")
+    print("SUCCESS: LEGAL MANAGEMENT SYSTEM")
 except Exception as e:
     db = None
     print(f"CRITICAL: Cloud Connection Failed. Error: {e}")
@@ -73,7 +73,7 @@ def update_case(case_id, name, phone, ctype, desc):
         print(f"DB Error (update_case): {e}")
 
 def delete_case(case_id): 
-    """Permanently purges a record (Withdrawal or Final Rejection)."""
+    """Permanently purges a record (Only when explicitly triggered by a UI button click)."""
     if db is None or not is_valid_id(case_id): return
     try:
         db.cases.delete_one({"_id": ObjectId(case_id)})
@@ -92,7 +92,7 @@ def update_status(case_id, status, reviewer):
         print(f"DB Error (update_status): {e}")
 
 def increment_rejection(case_id, reviewer):
-    """Registers a rejection stamp alongside the active staff reviewer's name."""
+    """Registers a rejection stamp and increments the strike counter. Never deletes automatically."""
     if db is None or not is_valid_id(case_id): return
     try:
         db.cases.update_one(
