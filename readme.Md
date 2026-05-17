@@ -26,11 +26,13 @@ The Trigger: The button only reveals itself when a case with a Rejected status i
  Interface Preview
 The Client Portal
 Where refined aesthetic meets functional case filing.
-![alt text](client.png.png)
+![alt text](image.png)
 
 the admin portal
 Observe the conditional logic: 'Permanent Delete' only appears for rejected cases.
-![alt text](admin.png.png)
+![alt text](image-1.png)
+
+
 
 Technical Stack
 Frontend: Python Tkinter (Themed with Mahogany #2C1E16 and Gold #D4AF37).
