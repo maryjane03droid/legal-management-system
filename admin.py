@@ -77,14 +77,15 @@ class AdminDashboard:
         for c in all_cases:
             rc = c.get('rejection_count', 0)
             status = c['status']
+            reviewer = c.get('reviewed_by', 'None')
             
-            # Formulating the "Decision Log" column
+            # Formulating the "Decision Log" column dynamically based on your lecturer's layout rule
             if status == "Approved":
-                log = f"Approved by {c.get('reviewed_by', 'Staff')}"
+                log = f"Approved by {reviewer}"
             elif status == "Solved":
-                log = f"Solved by {c.get('reviewed_by', 'Staff')}"
+                log = f"Solved by {reviewer}"
             elif rc == 1:
-                log = "TAKE CASE (1st Rejection)"
+                log = f"TAKE CASE (Rejected by {reviewer})"
             else:
                 log = "Awaiting Initial Review"
 
@@ -93,7 +94,7 @@ class AdminDashboard:
                              tags=(status,))
 
     def update_ui_state(self, event=None):
-        """Dynamically switches button functionality based on case status."""
+        """Dynamically switches button functionality and applies multi-staff locking protocols."""
         sel = self.tree.selection()
         if not sel: return
         
@@ -101,11 +102,21 @@ class AdminDashboard:
         case = next(c for c in mongo.get_cases() if str(c['_id']) == case_id)
         status = case.get('status')
         rc = case.get('rejection_count', 0)
+        reviewer = case.get('reviewed_by', 'None')
+        current_user = self.user['username']
 
-        # DEFAULT STATES
+        # RESET DEFAULT BUTTON STATES
         self.action_btn_1.config(state="normal", text="APPROVE CASE", bg="#28a745")
         self.action_btn_2.config(state="normal", text="REJECT (SEND TO ANOTHER)", bg="#dc3545", fg="white")
 
+        # --- LECTURER CONCURRENCY RULE: TAMPER PROOF LOCK ---
+        # If the case has been taken up (Approved or Solved) by another lawyer, lock out all other staff
+        if status in ["Approved", "Solved"] and reviewer != "None" and reviewer != current_user:
+            self.action_btn_1.config(text=f"LOCKED BY {reviewer.upper()}", state="disabled", bg="#33221A")
+            self.action_btn_2.config(text="ACCESS RESTRICTED", state="disabled", bg="#33221A", fg="#888888")
+            return
+
+        # --- NORMAL WORKFLOW STATES ---
         if status == "Approved":
             self.action_btn_1.config(text="MARK CASE SOLVED", bg="#17a2b8")
             self.action_btn_2.config(text="WITHDRAW RECORD", bg="#6c757d")
@@ -115,6 +126,7 @@ class AdminDashboard:
             self.action_btn_2.config(text="DELETE ARCHIVE", bg="#000000")
 
         elif rc == 1:
+            # If pending or rejected once, the logged-in reviewer can take the case
             self.action_btn_1.config(text="APPROVE (LAWYER TAKEOVER)")
             self.action_btn_2.config(text="PERMANENTLY DELETE", bg="#000000", fg="#dc3545")
 
@@ -125,14 +137,21 @@ class AdminDashboard:
         case_id = sel[0]
         case = next(c for c in mongo.get_cases() if str(c['_id']) == case_id)
         status = case.get('status')
+        reviewer = case.get('reviewed_by', 'None')
+        current_user = self.user['username']
+
+        # Extra verification check to double enforce safety
+        if status in ["Approved", "Solved"] and reviewer != "None" and reviewer != current_user:
+            messagebox.showerror("Error", f"This case is assigned to {reviewer} and cannot be processed.")
+            return
 
         if status == "Approved":
             if messagebox.askyesno("Final Verdict", "Mark this case as SOLVED and successful?"):
-                mongo.update_status(case_id, "Solved", self.user['username'])
+                mongo.update_status(case_id, "Solved", current_user)
                 self.refresh_all()
         else:
-            if messagebox.askyesno("Confirm Approval", "Approve this case? It will be locked for editing."):
-                mongo.update_status(case_id, "Approved", self.user['username'])
+            if messagebox.askyesno("Confirm Approval", "Approve this case? It will be locked to your account."):
+                mongo.update_status(case_id, "Approved", current_user)
                 self.refresh_all()
 
     def handle_reject_or_withdraw(self):
@@ -143,6 +162,12 @@ class AdminDashboard:
         case = next(c for c in mongo.get_cases() if str(c['_id']) == case_id)
         status = case.get('status')
         rc = case.get('rejection_count', 0)
+        reviewer = case.get('reviewed_by', 'None')
+        current_user = self.user['username']
+
+        if status in ["Approved", "Solved"] and reviewer != "None" and reviewer != current_user:
+            messagebox.showerror("Error", f"This case is assigned to {reviewer} and cannot be processed.")
+            return
 
         if status == "Approved" or status == "Solved":
             if messagebox.askyesno("Warning", "Withdraw this record? It will be removed from the Vault."):
@@ -153,13 +178,12 @@ class AdminDashboard:
                 mongo.delete_case(case_id)
                 self.refresh_all()
         else:
-            if messagebox.askyesno("Reject", "Reject this case? Another lawyer can still take it."):
-                mongo.increment_rejection(case_id)
+            if messagebox.askyesno("Reject", "Reject this case? It can still be claimed by another lawyer."):
+                mongo.increment_rejection(case_id, current_user)
                 self.refresh_all()
 
     def refresh_all(self):
         self.load()
-        # Refreshes the parent (main dashboard) in the background
         if self.parent:
             self.parent.refresh()
         messagebox.showinfo("Vault Synced", "Records have been successfully updated.")

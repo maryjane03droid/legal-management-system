@@ -3,7 +3,7 @@ from bson import ObjectId
 import ssl
 
 # --- CLOUD DATABASE CONNECTION ---
-# Replace with your secure Atlas Connection String
+# Secure Atlas Connection String
 uri = "mongodb+srv://kuthiemaryjane:m110304j@cluster0.3l9dg2e.mongodb.net/?retryWrites=true&w=majority"
 
 try:
@@ -41,8 +41,8 @@ def add_case(name, phone, ctype, desc):
             "type": ctype, 
             "desc": desc.strip(), 
             "status": "Pending",
-            "rejection_count": 0,    # New: Tracks the 'two-strike' rule
-            "reviewed_by": "None"    # New: Stores staff name upon approval
+            "rejection_count": 0,    # Tracks the 'two-strike' rule
+            "reviewed_by": "None"    # Stores staff name upon approval/lock
         }).inserted_id
     except errors.PyMongoError as e:
         print(f"DB Error (add_case): {e}")
@@ -81,7 +81,7 @@ def delete_case(case_id):
         print(f"DB Error (delete_case): {e}")
 
 def update_status(case_id, status, reviewer):
-    """Final Approval logic: Seals the case and logs the reviewer's name."""
+    """Binds the case status change directly to the active staff user."""
     if db is None or not is_valid_id(case_id): return
     try:
         db.cases.update_one(
@@ -91,13 +91,13 @@ def update_status(case_id, status, reviewer):
     except errors.PyMongoError as e:
         print(f"DB Error (update_status): {e}")
 
-def increment_rejection(case_id):
-    """Handles the first rejection. Marks as Rejected but keeps it for another lawyer."""
+def increment_rejection(case_id, reviewer):
+    """Registers a rejection stamp alongside the active staff reviewer's name."""
     if db is None or not is_valid_id(case_id): return
     try:
         db.cases.update_one(
             {"_id": ObjectId(case_id)},
-            {"$inc": {"rejection_count": 1}, "$set": {"status": "Rejected"}}
+            {"$inc": {"rejection_count": 1}, "$set": {"status": "Rejected", "reviewed_by": reviewer}}
         )
     except errors.PyMongoError as e:
         print(f"DB Error (increment_rejection): {e}")

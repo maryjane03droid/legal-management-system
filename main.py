@@ -170,13 +170,18 @@ class LegalFirmPortal:
         self.tree.column("Brief", width=350)
         self.tree.pack(fill="both", expand=True)
 
+        # Explicit tag colors for the client tree matching your luxury standard
+        self.tree.tag_configure("Approved", foreground="#D4AF37")
+        self.tree.tag_configure("Solved", foreground="#28a745")
+        self.tree.tag_configure("Rejected", foreground="#dc3545")
+        self.tree.tag_configure("Pending", foreground="#A89276")
+
     def render_nav_buttons(self):
         for w in self.auth_frame.winfo_children(): w.destroy()
         if not self.current_session:
             tk.Button(self.auth_frame, text="ACCESS PORTAL", bg=self.gold, fg="black", 
                       font=("Arial", 9, "bold"), width=18, bd=0, cursor="hand2",
                       command=self.login_trigger).pack(padx=5)
-            # Enable name entry for guest filing
             self.n_ent.config(state="normal")
         else:
             name = self.current_session['username'].upper()
@@ -185,7 +190,6 @@ class LegalFirmPortal:
             tk.Button(self.auth_frame, text="LOG OUT", bg="#721c24", fg="white", 
                       font=("Arial", 9, "bold"), bd=0, command=self.logout).pack(side="right")
             
-            # Auto-fill name and lock it if they are a Client to prevent mismatches
             if self.current_session['role'] == "Client":
                 self.n_ent.delete(0, 'end')
                 self.n_ent.insert(0, self.current_session['username'])
@@ -196,6 +200,7 @@ class LegalFirmPortal:
         for i in self.tree.get_children(): self.tree.delete(i)
         for c in mongo.get_cases():
             auth = False
+            status = c.get('status', 'Pending')
             if self.current_session:
                 curr_user = str(self.current_session['username']).strip().lower()
                 case_owner = str(c['name']).strip().lower()
@@ -204,8 +209,8 @@ class LegalFirmPortal:
             
             p, d = (c['phone'], c['desc']) if auth else ("*******", "RESTRICTED ACCESS")
             self.tree.insert("", "end", iid=str(c['_id']), values=(
-                str(c['_id'])[-5:], c['name'], c['type'], p, d, c['status'], c.get('reviewed_by', 'None')
-            ))
+                str(c['_id'])[-5:], c['name'], c['type'], p, d, status, c.get('reviewed_by', 'None')
+            ), tags=(status,))
 
     def login_trigger(self): 
         AuthGateway(self.root, on_success=self.login_success)
@@ -217,7 +222,7 @@ class LegalFirmPortal:
 
     def logout(self): 
         self.current_session = None
-        self.n_ent.config(state="normal") # unlock name entry
+        self.n_ent.config(state="normal") 
         self.n_ent.delete(0, 'end')
         self.render_nav_buttons()
         self.refresh()
@@ -240,6 +245,14 @@ class LegalFirmPortal:
             
         case = next((c for c in mongo.get_cases() if str(c['_id']) == sel[0]), None)
         if case:
+            status = case.get('status', 'Pending')
+            
+            # --- LECTURER AMENDMENT RULE ---
+            # Block modifications if a case is already Locked/Approved/Solved by a lawyer
+            if status in ["Approved", "Solved"]:
+                messagebox.showerror("Vault Locked", f"Modification Denied: This legal record is officially sealed under '{status}' status.")
+                return
+
             curr = self.current_session['username'].strip().lower()
             owner = case['name'].strip().lower()
             if curr == owner or self.current_session['role'] != "Client":
@@ -254,6 +267,14 @@ class LegalFirmPortal:
         
         case = next((c for c in mongo.get_cases() if str(c['_id']) == sel[0]), None)
         if case:
+            status = case.get('status', 'Pending')
+            
+            # --- LECTURER AMENDMENT RULE ---
+            # Block removal if a staff member has locked or closed out the file
+            if status in ["Approved", "Solved"]:
+                messagebox.showerror("Vault Locked", "Withdrawal Denied: Active or resolved legal files cannot be purged by clients.")
+                return
+
             curr = self.current_session['username'].strip().lower()
             owner = case['name'].strip().lower()
             if curr == owner or self.current_session['role'] != "Client":
@@ -262,16 +283,13 @@ class LegalFirmPortal:
                     self.refresh()
 
     def file_flow(self):
-        # We use .get() regardless of state (normal or disabled)
         n, p = self.n_ent.get(), self.p_ent.get()
         if n and p:
             d = simpledialog.askstring("Case Brief", f"Enter details for {n}:")
             if d: 
                 mongo.add_case(n, p, self.t_box.get(), d)
                 self.refresh()
-                # Clean up phone entry
                 self.p_ent.delete(0, 'end')
-                # If guest, clean up name. If logged in, the locked name stays.
                 if not self.current_session:
                     self.n_ent.delete(0, 'end')
 
