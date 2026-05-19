@@ -9,7 +9,7 @@ from admin import AdminDashboard
 class AuthGateway:
     def __init__(self, parent, on_success):
         self.win = tk.Toplevel(parent)
-        self.win.title("PRESTIGE ACCESS")
+        self.win.title("SYSTEM ACCESS")
         self.win.geometry("400x350")
         self.win.configure(bg="#1A110B")
         self.on_success = on_success
@@ -17,12 +17,11 @@ class AuthGateway:
         tk.Label(self.win, text="SELECT ACCESS PORTAL", font=("Times New Roman", 16, "bold"), 
                  bg="#1A110B", fg="#D4AF37").pack(pady=40)
 
-        # Dual portal selection options preserved for the main navigation entry
         tk.Button(self.win, text="CLIENT PORTAL", bg="#D4AF37", fg="black", font=("Arial", 10, "bold"),
                   width=25, height=2, bd=0, cursor="hand2", 
                   command=lambda: self.select_role(False)).pack(pady=10)
 
-        tk.Button(self.win, text="STAFF VAULT", bg="#2C1E16", fg="#D4AF37", font=("Arial", 10, "bold"),
+        tk.Button(self.win, text="STAFF PORTAL", bg="#2C1E16", fg="#D4AF37", font=("Arial", 10, "bold"),
                   width=25, height=2, bd=0, cursor="hand2", 
                   command=lambda: self.select_role(True)).pack(pady=10)
 
@@ -58,7 +57,7 @@ class PortalChoice:
 
     def open_signup(self):
         self.win.destroy()
-        SignupWindow(self.win.master, is_admin=self.is_admin)
+        SignupWindow(self.win.master, is_admin=self.is_admin, on_success=self.on_success)
 
 # --- 3. EDIT DIALOG ---
 class EditDialog:
@@ -102,8 +101,8 @@ class EditDialog:
 class LegalFirmPortal:
     def __init__(self, root):
         self.root = root
-        self.root.title("PRESTIGE LEGAL MANAGEMENT SYSTEM")
-        self.root.geometry("1400x800")
+        self.root.title("LEGAL MANAGEMENT SYSTEM")
+        self.root.geometry("1400x850") 
         self.root.configure(bg="#1A110B")
         
         self.gold, self.mahogany = "#D4AF37", "#2C1E16"
@@ -113,6 +112,7 @@ class LegalFirmPortal:
         self.refresh()
 
     def setup_ui(self):
+        # --- TOP HEADER NAVIGATION ---
         self.nav = tk.Frame(self.root, bg="#000000", height=100)
         self.nav.pack(fill="x")
         tk.Label(self.nav, text="L E G A L  M A N A G E M E N T", font=("Times New Roman", 26, "bold"), 
@@ -139,6 +139,7 @@ class LegalFirmPortal:
         tk.Button(self.entry_f, text="FILE CASE", bg=self.gold, fg="black", font=("Arial", 9, "bold"), 
                   width=12, command=self.file_flow, cursor="hand2", bd=0).grid(row=0, column=6, padx=20)
 
+        # --- ACTION WORKBAR INTERFACE ---
         self.action_bar = tk.Frame(self.root, bg="#1A110B")
         self.action_bar.pack(fill="x", padx=60, pady=10)
         
@@ -153,10 +154,48 @@ class LegalFirmPortal:
         
         self.render_nav_buttons()
 
-        self.tree_frame = tk.Frame(self.root, bg="#1A110B")
-        self.tree_frame.pack(fill="both", expand=True, padx=60, pady=(0, 40))
+        # --- FIXED BOTTOM FOOTER ---
+        self.footer = tk.Frame(self.root, bg="#000000", height=50)
+        self.footer.pack(side="bottom", fill="x")
+        
+        contact_txt = "location: 256 pangani,Nairobi  |    Emergency Counsel: +1 (555) 900-LEGAL   |   email: L.m.f @legalfirm.com"
+        tk.Label(self.footer, text=contact_txt, font=("Arial", 9), bg="#000000", fg="#A89276").pack(pady=15)
+
+        # Container Workspace for structural adjustments
+        self.workspace = tk.Frame(self.root, bg="#1A110B")
+        self.workspace.pack(fill="both", expand=True, padx=60, pady=(0, 20))
+
+        # --- SHIELDED CONFIDENTIAL SPLIT LANDING LAYOUT ---
+        self.splash_frame = tk.Frame(self.workspace, bg="#2C1E16", highlightbackground=self.gold, highlightthickness=1)
+        
+        # LEFT COLUMN FRAME: Handled natively via scalable UI parameters
+        left_img_column = tk.Frame(self.splash_frame, bg="#2C1E16", width=500)
+        left_img_column.pack(side="left", fill="both", expand=True, padx=(40, 20), pady=30)
+        
+        # Scalable Vector Unicode character configuration mapping
+        self.img_lbl = tk.Label(left_img_column, text="⚖", font=("Times New Roman", 110), bg="#2C1E16", fg=self.gold)
+        self.img_lbl.pack(expand=True)
+
+        # RIGHT COLUMN FRAME: Designed exclusively for About Content and Actions
+        right_info_column = tk.Frame(self.splash_frame, bg="#2C1E16")
+        right_info_column.pack(side="right", fill="both", expand=True, padx=(20, 40), pady=30)
+
+        tk.Label(right_info_column, text="LEGAL RECORDS MANAGEMENT", font=("Times New Roman", 24, "bold"), bg="#2C1E16", fg=self.gold, anchor="w").pack(fill="x", pady=(20, 5))
+        
+        about_card = tk.Frame(right_info_column, bg="#1A110B", bd=1, relief="solid")
+        about_card.pack(fill="x", pady=15)
+        
+        about_body = (
+            "Welcome to our legal management firm. We specialize in family law , personal injury cases,corporate litigation,criminal defense and any other legal matters."
+        )
+        tk.Label(about_card, text="ABOUT US", font=("Times New Roman", 12, "bold"), bg="#1A110B", fg=self.gold, anchor="w").pack(fill="x", padx=25, pady=(15, 5))
+        tk.Label(about_card, text=about_body, font=("Arial", 10), bg="#1A110B", fg="white", wraplength=550, justify="left").pack(padx=25, pady=(0, 20))
+        
+        tk.Button(right_info_column, text="LOGIN ", font=("Arial", 10, "bold"), bg=self.gold, fg="black", bd=0, padx=25, pady=12, command=self.login_trigger).pack(anchor="w", pady=10)
+
+        # --- MAIN SECURE DATA TREEVIEW ---
         cols = ("id", "Client", "Type", "Contact", "Brief", "Status", "Reviewer")
-        self.tree = ttk.Treeview(self.tree_frame, columns=cols, show="headings")
+        self.tree = ttk.Treeview(self.workspace, columns=cols, show="headings")
         
         style = ttk.Style()
         style.theme_use("clam")
@@ -167,12 +206,11 @@ class LegalFirmPortal:
             self.tree.heading(col, text=col.upper())
             self.tree.column(col, anchor="center", width=100)
         self.tree.column("Brief", width=350)
-        self.tree.pack(fill="both", expand=True)
 
     def render_nav_buttons(self):
         for w in self.auth_frame.winfo_children(): w.destroy()
         if not self.current_session:
-            tk.Button(self.auth_frame, text="ACCESS PORTAL", bg=self.gold, fg="black", 
+            tk.Button(self.auth_frame, text="LOGIN/SIGN UP", bg=self.gold, fg="black", 
                       font=("Arial", 9, "bold"), width=18, bd=0, cursor="hand2",
                       command=self.login_trigger).pack(padx=5)
             self.n_ent.config(state="normal")
@@ -189,24 +227,30 @@ class LegalFirmPortal:
                 self.n_ent.config(state="disabled")
 
     def refresh(self):
-        """Filters data dynamically based on user role authentication."""
+        """Swaps layout workspace contexts depending on active authentication."""
+        if not self.current_session:
+            self.tree.pack_forget()
+            self.splash_frame.pack(fill="both", expand=True, pady=20)
+            return
+        
+        self.splash_frame.pack_forget()
+        self.tree.pack(fill="both", expand=True)
+
         for i in self.tree.get_children(): self.tree.delete(i)
         for c in mongo.get_cases():
             auth = False
-            if self.current_session:
-                curr_user = str(self.current_session['username']).strip().lower()
-                case_owner = str(c['name']).strip().lower()
-                # Admins see everything, Clients only see match logs
-                if curr_user == case_owner or self.current_session['role'] != "Client":
-                    auth = True
+            curr_user = str(self.current_session['username']).strip().lower()
+            case_owner = str(c['name']).strip().lower()
             
-            p, d = (c['phone'], c['desc']) if auth else ("*******", "RESTRICTED ACCESS")
-            self.tree.insert("", "end", iid=str(c['_id']), values=(
-                str(c['_id'])[-5:], c['name'], c['type'], p, d, c['status'], c.get('reviewed_by', 'None')
-            ))
+            if curr_user == case_owner or self.current_session['role'] != "Client":
+                auth = True
+        
+            if auth:
+                self.tree.insert("", "end", iid=str(c['_id']), values=(
+                    str(c['_id'])[-5:], c['name'], c['type'], c['phone'], c['desc'], c['status'], c.get('reviewed_by', 'None')
+                ))
 
     def login_trigger(self): 
-        # Keeps dual portal active for the top right navigation header button
         AuthGateway(self.root, on_success=self.login_success)
 
     def login_success(self, user): 
@@ -222,23 +266,21 @@ class LegalFirmPortal:
         self.refresh()
 
     def review_gate(self):
-        # 1. Bypasses dual portal check window entirely if logged out
         if not self.current_session:
-            messagebox.showinfo("Staff Required", "Please verify your Staff credentials to enter the Review Vault.")
+            messagebox.showinfo("Staff Required", "Please verify your Staff credentials to enter the Review portal.")
             PortalChoice(self.root, is_admin=True, on_success=self.login_success)
-        # 2. Hard lockdown blocking clients from using it
         elif self.current_session['role'] == "Client":
             messagebox.showerror("Access Denied", "Unauthorized Access: The administrative review panel is restricted to firm staff.")
-        # 3. Direct route for authentic staff/lawyers
         else:
             AdminDashboard(self, self.current_session)
 
     def edit_flow(self):
+        if not self.current_session: 
+            messagebox.showwarning("Auth Required", "Please login to access case modification tools.")
+            return self.login_trigger()
+            
         sel = self.tree.selection()
         if not sel: return messagebox.showwarning("Selection", "Select a record.")
-        if not self.current_session: 
-            messagebox.showwarning("Auth", "Please log in first.")
-            return self.login_trigger()
             
         case = next((c for c in mongo.get_cases() if str(c['_id']) == sel[0]), None)
         if case:
@@ -250,18 +292,18 @@ class LegalFirmPortal:
                 messagebox.showerror("Denied", "Ownership verification failed.")
 
     def withdraw_flow(self):
+        if not self.current_session: 
+            return self.login_trigger()
+            
         sel = self.tree.selection()
         if not sel: return
-        if not self.current_session: return self.login_trigger()
         
         case = next((c for c in mongo.get_cases() if str(c['_id']) == sel[0]), None)
         if case:
             curr = self.current_session['username'].strip().lower()
             owner = case['name'].strip().lower()
             
-            # Ownership check verified first
             if curr == owner or self.current_session['role'] != "Client":
-                # Strict client safety protocol: can only withdraw if status is Pending or Rejected
                 if self.current_session['role'] == "Client" and case['status'] not in ["Pending", "Rejected"]:
                     messagebox.showerror("Vault Sealed", f"Withdrawal Denied: Case file has already been '{case['status']}' and cannot be altered.")
                     return
@@ -273,6 +315,11 @@ class LegalFirmPortal:
                 messagebox.showerror("Denied", "Ownership verification failed.")
 
     def file_flow(self):
+        if not self.current_session:
+            messagebox.showwarning("Authentication Required", "To file an official case brief, you must login or register a client account.")
+            AuthGateway(self.root, on_success=self.login_success)
+            return
+
         n, p = self.n_ent.get(), self.p_ent.get()
         if n and p:
             d = simpledialog.askstring("Case Brief", f"Enter details for {n}:")
@@ -280,8 +327,6 @@ class LegalFirmPortal:
                 mongo.add_case(n, p, self.t_box.get(), d)
                 self.refresh()
                 self.p_ent.delete(0, 'end')
-                if not self.current_session:
-                    self.n_ent.delete(0, 'end')
 
 if __name__ == "__main__":
     root = tk.Tk()

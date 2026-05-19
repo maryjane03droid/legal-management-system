@@ -10,16 +10,19 @@ try:
     # Optimized connection pooling for a responsive UI
     client = MongoClient(
         uri, 
-        serverSelectionTimeoutMS=5000,
+        serverSelectionTimeoutMS=3000, # Bypasses long hangs on slow connections
         tls=True,
         tlsAllowInvalidCertificates=True,
         maxPoolSize=20 
     )
     db = client["LegalFirmDB"]
     
-    # Ping the database to confirm connection
-    client.admin.command('ping')
-    print("SUCCESS: LEGAL MANAGEMENT SYSTEM")
+    # CRASH PROTECTION: Wrap ping inside localized try block
+    try:
+        client.admin.command('ping')
+        print("SUCCESS: LEGAL MANAGEMENT SYSTEM")
+    except Exception as ping_error:
+        print(f"WARNING: Database online, but initial ping failed: {ping_error}")
 except Exception as e:
     db = None
     print(f"CRITICAL: Cloud Connection Failed. Error: {e}")
@@ -42,7 +45,8 @@ def add_case(name, phone, ctype, desc):
             "desc": desc.strip(), 
             "status": "Pending",
             "rejection_count": 0,    # Tracks the 'two-strike' rule
-            "reviewed_by": "None"    # Stores staff name upon approval/lock
+            "reviewed_by": "None",   # Stores staff name upon approval/lock
+            "admin_comment": "None"  # Placeholder for rejection reasons
         }).inserted_id
     except errors.PyMongoError as e:
         print(f"DB Error (add_case): {e}")
@@ -91,13 +95,20 @@ def update_status(case_id, status, reviewer):
     except errors.PyMongoError as e:
         print(f"DB Error (update_status): {e}")
 
-def increment_rejection(case_id, reviewer):
-    """Registers a rejection stamp and increments the strike counter. Never deletes automatically."""
+def increment_rejection(case_id, reviewer, comment):
+    """Registers a rejection stamp, increments counter, and appends admin reasoning text."""
     if db is None or not is_valid_id(case_id): return
     try:
         db.cases.update_one(
             {"_id": ObjectId(case_id)},
-            {"$inc": {"rejection_count": 1}, "$set": {"status": "Rejected", "reviewed_by": reviewer}}
+            {
+                "$inc": {"rejection_count": 1}, 
+                "$set": {
+                    "status": "Rejected", 
+                    "reviewed_by": reviewer,
+                    "admin_comment": comment.strip() # New field to save reason directly
+                }
+            }
         )
     except errors.PyMongoError as e:
         print(f"DB Error (increment_rejection): {e}")

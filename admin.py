@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, simpledialog
 import mongo
 
 class AdminDashboard:
@@ -55,14 +55,14 @@ class AdminDashboard:
         
         # Left Button: Logic changes based on selection
         self.action_btn_1 = tk.Button(self.btn_f, text="APPROVE CASE", bg="#28a745", fg="white", 
-                                     font=("Arial", 10, "bold"), width=25, height=2, bd=0, 
-                                     command=self.handle_approve_or_solve)
+                                      font=("Arial", 10, "bold"), width=25, height=2, bd=0, 
+                                      command=self.handle_approve_or_solve)
         self.action_btn_1.pack(side="left", padx=10)
 
         # Right Button: Logic changes based on selection
         self.action_btn_2 = tk.Button(self.btn_f, text="REJECT CASE", bg="#dc3545", fg="white", 
-                                    font=("Arial", 10, "bold"), width=35, height=2, bd=0, 
-                                    command=self.handle_reject_or_withdraw)
+                                     font=("Arial", 10, "bold"), width=35, height=2, bd=0, 
+                                     command=self.handle_reject_or_withdraw)
         self.action_btn_2.pack(side="left", padx=10)
 
         # Selection listener to update UI labels/buttons
@@ -78,14 +78,15 @@ class AdminDashboard:
             rc = c.get('rejection_count', 0)
             status = c['status']
             reviewer = c.get('reviewed_by', 'None')
+            comment = c.get('admin_comment', 'None')
             
-            # Formulating the "Decision Log" column dynamically based on your lecturer's layout rule
+            # Formulating the "Decision Log" column dynamically with custom comment layout strings
             if status == "Approved":
                 log = f"Approved by {reviewer}"
             elif status == "Solved":
                 log = f"Solved by {reviewer}"
-            elif rc == 1:
-                log = f"TAKE CASE (Rejected by {reviewer})"
+            elif rc >= 1:
+                log = f"REJECTED: Reason: {comment}"
             else:
                 log = "Awaiting Initial Review"
 
@@ -110,7 +111,6 @@ class AdminDashboard:
         self.action_btn_2.config(state="normal", text="REJECT (SEND TO ANOTHER)", bg="#dc3545", fg="white")
 
         # --- LECTURER CONCURRENCY RULE: TAMPER PROOF LOCK ---
-        # If the case has been taken up (Approved or Solved) by another lawyer, lock out all other staff
         if status in ["Approved", "Solved"] and reviewer != "None" and reviewer != current_user:
             self.action_btn_1.config(text=f"LOCKED BY {reviewer.upper()}", state="disabled", bg="#33221A")
             self.action_btn_2.config(text="ACCESS RESTRICTED", state="disabled", bg="#33221A", fg="#888888")
@@ -126,7 +126,6 @@ class AdminDashboard:
             self.action_btn_2.config(text="DELETE ARCHIVE", bg="#000000")
 
         elif rc == 1:
-            # If pending or rejected once, the logged-in reviewer can take the case
             self.action_btn_1.config(text="APPROVE (LAWYER TAKEOVER)")
             self.action_btn_2.config(text="PERMANENTLY DELETE", bg="#000000", fg="#dc3545")
 
@@ -140,7 +139,6 @@ class AdminDashboard:
         reviewer = case.get('reviewed_by', 'None')
         current_user = self.user['username']
 
-        # Extra verification check to double enforce safety
         if status in ["Approved", "Solved"] and reviewer != "None" and reviewer != current_user:
             messagebox.showerror("Error", f"This case is assigned to {reviewer} and cannot be processed.")
             return
@@ -178,12 +176,18 @@ class AdminDashboard:
                 mongo.delete_case(case_id)
                 self.refresh_all()
         else:
+            # INTERCEPT REJECTION TO CAPTURE COMMENT PROMPT
+            comment = simpledialog.askstring("Rejection Feedback", "Provide official reason for rejection:")
+            if not comment or not comment.strip():
+                messagebox.showwarning("Action Cancelled", "Rejection requires an official comment record.")
+                return
+                
             if messagebox.askyesno("Reject", "Reject this case? It can still be claimed by another lawyer."):
-                mongo.increment_rejection(case_id, current_user)
+                mongo.increment_rejection(case_id, current_user, comment)
                 self.refresh_all()
 
     def refresh_all(self):
         self.load()
         if self.parent:
             self.parent.refresh()
-        messagebox.showinfo("Vault Synced", "Records have been successfully updated.")
+        messagebox.showinfo( "Records have been successfully updated.")

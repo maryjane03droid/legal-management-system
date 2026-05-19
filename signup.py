@@ -1,15 +1,16 @@
 import tkinter as tk
 from tkinter import messagebox, ttk
 import mongo
-from login import LoginWindow # Import LoginWindow to allow jumping back
+from login import LoginWindow
 
 class SignupWindow:
-    def __init__(self, parent, is_admin=False):
+    def __init__(self, parent, is_admin=False, on_success=None):
         self.win = tk.Toplevel(parent)
-        self.win.title("PRESTIGE REGISTRATION")
-        self.win.geometry("400x650") # Slightly taller to fit the new button
+        self.win.title("REGISTER NEW ACCOUNT")
+        self.win.geometry("400x650")
         self.win.configure(bg="#1A110B")
         self.is_admin = is_admin
+        self.on_success = on_success # Store the main application's success state callback
         self.is_shon = False
         
         title_text = "STAFF REGISTRATION" if is_admin else "CLIENT REGISTRATION"
@@ -51,7 +52,7 @@ class SignupWindow:
         tk.Button(self.win, text="CREATE ACCOUNT", bg="#D4AF37", fg="black", font=("Arial", 10, "bold"),
                   height=2, width=22, bd=0, cursor="hand2", command=self.save).pack(pady=(20, 10))
 
-        # NEW: Login Link for existing users
+        # Login Link for existing users
         tk.Button(self.win, text="Already have an account? Log In", bg="#1A110B", fg="#A89276", 
                   font=("Arial", 9, "underline"), bd=0, cursor="hand2", 
                   activebackground="#1A110B", activeforeground="#D4AF37",
@@ -71,15 +72,11 @@ class SignupWindow:
     def switch_to_login(self):
         """Closes signup and opens login directly"""
         parent = self.win.master
-        # Access the login_success callback from the parent app if possible
-        # In your main.py setup, LegalFirmPortal is the master
         self.win.destroy()
-        LoginWindow(parent, on_success=lambda user: parent.nametowidget('.').app.login_success(user) if hasattr(parent, 'app') else None)
-        # Note: If using the provided main.py, the standard trigger is:
-        # LoginWindow(parent, on_success=self.parent_app.login_success)
+        LoginWindow(parent, on_success=self.on_success)
 
     def save(self):
-        username, password = self.u.get(), self.p.get()
+        username, password = self.u.get().strip(), self.p.get()
         if not username or not password:
             messagebox.showwarning("Incomplete", "Please fill in all fields.")
             return
@@ -93,8 +90,15 @@ class SignupWindow:
             role = "Client"
 
         if mongo.create_user(username, password, role):
-            messagebox.showinfo("Success", f"Account created as {role}. Please log in.")
-            self.win.destroy()
-        else:
+            messagebox.showinfo("Success", f"Account created successfully as {role}!")
             
+            # DIRECT AUTO-LOGIN INTERCEPT PROTOCOL
+            if self.on_success:
+                # Packaging session payload exactly how mongo.verify_user returns it
+                session_user = {"username": username, "role": role}
+                self.win.destroy()
+                self.on_success(session_user) # Fire direct execution inside main.py
+            else:
+                self.win.destroy()
+        else:
             messagebox.showerror("Error", "Username is already registered.")

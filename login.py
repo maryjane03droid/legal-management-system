@@ -12,7 +12,7 @@ class LoginWindow:
         self.is_shon = False
 
         # --- REFINED LOGO/HEADER ---
-        tk.Label(self.win, text="V A U L T  A C C E S S", font=("Times New Roman", 20, "bold"), 
+        tk.Label(self.win, text="ENTER ACCOUNT DETAILS", font=("Times New Roman", 20, "bold"), 
                  bg="#1A110B", fg="#D4AF37").pack(pady=(50, 30))
         
         f = tk.Frame(self.win, bg="#1A110B")
@@ -38,6 +38,7 @@ class LoginWindow:
         self.toggle_btn = tk.Button(pass_row, text="👁", bg="#2C1E16", fg="#D4AF37", borderwidth=0, 
                                     activebackground="#2C1E16", activeforeground="white",
                                     cursor="hand2", command=self.toggle_pass)
+                                    
         self.toggle_btn.pack(side="right", padx=5)
 
         # --- LOGIN ACTION ---
@@ -46,7 +47,7 @@ class LoginWindow:
                   command=self.attempt).pack(pady=40)
         
         # Footer decoration
-        tk.Label(self.win, text="PRESTIGE LEGAL SYSTEMS © 2026", font=("Arial", 7), 
+        tk.Label(self.win, text="LEGAL MANAGEMENT SYSTEM © 2026", font=("Arial", 7), 
                  bg="#1A110B", fg="#4A3728").pack(side="bottom", pady=10)
 
     def toggle_pass(self):
@@ -63,7 +64,7 @@ class LoginWindow:
     def attempt(self):
         """Verifies credentials against the Cloud Atlas database."""
         username = self.u.get().strip()
-        password = self.p.get().strip()
+        password = self.p.get() # CRITICAL: Removed .strip() to preserve explicit intentional user spacing
         
         if not username or not password:
             messagebox.showwarning("Incomplete", "Access denied. Please provide all credentials.")
@@ -74,7 +75,7 @@ class LoginWindow:
         
         if user:
             messagebox.showinfo("Identity Verified", f"Welcome back, {user['role']} {user['username']}.")
-            self.on_success(user)
             self.win.destroy()
+            self.on_success(user) # Triggers state switch in main application layer
         else:
             messagebox.showerror("Auth Error", "The credentials provided do not match our records.")
