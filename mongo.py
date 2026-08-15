@@ -4,8 +4,7 @@ import ssl
 
 # --- CLOUD DATABASE CONNECTION ---
 # Secure Atlas Connection String
-uri = "mongodb+srv://kuthiemaryjane:m110304j@cluster0.3l9dg2e.mongodb.net/?retryWrites=true&w=majority"
-
+uri = "mongodb+srv://steve:LegalApp2026@cluster0.owzjnec.mongodb.net/LegalFirmDB?appName=Cluster0"
 try:
     # Optimized connection pooling for a responsive UI
     client = MongoClient(
